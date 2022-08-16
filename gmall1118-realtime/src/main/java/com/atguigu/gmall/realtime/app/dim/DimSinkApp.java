@@ -3,6 +3,9 @@ package com.atguigu.gmall.realtime.app.dim;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
 import com.alibaba.fastjson.JSONValidator;
+import com.atguigu.gmall.realtime.app.func.DimSinkFunction;
+import com.atguigu.gmall.realtime.app.func.TableProcessFunction;
+import com.atguigu.gmall.realtime.bean.TableProcess;
 import com.atguigu.gmall.realtime.utils.MyKafkaUtil;
 import com.ververica.cdc.connectors.mysql.source.MySqlSource;
 import com.ververica.cdc.connectors.mysql.table.StartupOptions;
@@ -10,6 +13,9 @@ import com.ververica.cdc.debezium.JsonDebeziumDeserializationSchema;
 
 import org.apache.flink.api.common.eventtime.WatermarkStrategy;
 import org.apache.flink.api.common.functions.FilterFunction;
+import org.apache.flink.api.common.state.MapStateDescriptor;
+import org.apache.flink.streaming.api.datastream.BroadcastConnectedStream;
+import org.apache.flink.streaming.api.datastream.BroadcastStream;
 import org.apache.flink.streaming.api.datastream.DataStreamSource;
 import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
@@ -86,7 +92,7 @@ public class DimSinkApp {
                     public boolean filter(JSONObject jsonObj) throws Exception {
                         try {
                             String dataJsonStr = jsonObj.getString("data");
-                            //判断本身是不是一个json
+                            //判断本身是不是一个标准json字符串
                             JSONValidator.from(dataJsonStr).validate();
                             if (jsonObj.getString("type").equals("bootstrap-start") || jsonObj.getString("type").equals("bootstrap-complete")) {
                                 return false;
@@ -105,6 +111,21 @@ public class DimSinkApp {
 
 
         //使用FlinkCDC 读取MySQL配置表数据 ---> 配置流
+
+        //cdc连接报错，说是连接有问题 和ssl有关系 尝试这样解决
+        //        Properties props = new Properties();
+        //        props.setProperty("jdbc.properties.useSSL","false");
+
+        /* //来源表
+        String sourceTable;
+        //输出表
+        String sinkTable;
+        //输出字段
+        String sinkColumns;
+        //主键字段
+        String sinkPk;
+        //建表扩展
+        String sinkExtend;*/
         MySqlSource<String> mySqlSource = MySqlSource.<String>builder()
                 .hostname("hadoop102")
                 .port(3306)
@@ -126,13 +147,20 @@ public class DimSinkApp {
         //        mysqlDS.print(">>>");
 
         //将配置流进行广播 -->广播流
+        //声明广播状态描述器 存储配置表的数据  k:是表名   v：是tableprocess
+        MapStateDescriptor<String, TableProcess> mapStateDescriptor = new MapStateDescriptor<>("mapStateDescriptor", String.class, TableProcess.class);
+        BroadcastStream<String> broadcastDS = mysqlDS.broadcast(mapStateDescriptor);
 
         //将主流和广播流关联到一起
+        BroadcastConnectedStream<JSONObject, String> connectedDS = filterDS.connect(broadcastDS);
 
-        //分别对两条流进行处理--->从主流中把维度数据过滤出来
+        //分别对两条流进行处理--->从主流中把维度数据过滤出来  主流(左流)  配置流(右流)  输出的类型数据
+        SingleOutputStreamOperator<JSONObject> dimDS = connectedDS.process(new TableProcessFunction(mapStateDescriptor));
+
+        dimDS.print("维度数据");
 
         //将维度数据写到phoenix表中
-
+        dimDS.addSink(new DimSinkFunction());
 
         env.execute();
     }

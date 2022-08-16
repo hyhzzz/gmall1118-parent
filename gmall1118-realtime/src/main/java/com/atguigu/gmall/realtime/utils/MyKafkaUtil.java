@@ -2,11 +2,17 @@ package com.atguigu.gmall.realtime.utils;
 
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.streaming.connectors.kafka.FlinkKafkaConsumer;
+import org.apache.flink.streaming.connectors.kafka.FlinkKafkaProducer;
 import org.apache.flink.streaming.connectors.kafka.KafkaDeserializationSchema;
+import org.apache.flink.streaming.connectors.kafka.KafkaSerializationSchema;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.kafka.clients.producer.ProducerConfig;
+import org.apache.kafka.clients.producer.ProducerRecord;
 
 import java.util.Properties;
+
+import javax.annotation.Nullable;
 
 /**
  * @author coderhyh
@@ -17,6 +23,7 @@ public class MyKafkaUtil {
 
     private static final String KAFKA_SERVER = "hadoop102:9092,hadoop102:9092,hadoop103:9092";
 
+    //获取消费者对象的方法
     public static FlinkKafkaConsumer<String> getKafkaConsumer(String topic, String groupId) {
 
 
@@ -53,5 +60,26 @@ public class MyKafkaUtil {
             }
         }, props);
 
+    }
+
+    //获取生产者对象的方法
+
+    public static FlinkKafkaProducer<String> getKafkaProducer(String topic) {
+
+        Properties props = new Properties();
+        props.setProperty(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, KAFKA_SERVER);
+        //设置生产者事务超时时间
+        props.setProperty(ProducerConfig.TRANSACTION_TIMEOUT_CONFIG, 15 * 60 * 1000 + "");
+
+        return new FlinkKafkaProducer<String>("default",
+                //自己实现序列化
+                new KafkaSerializationSchema<String>() {
+                    @Override
+                    public ProducerRecord<byte[], byte[]> serialize(String s, @Nullable Long aLong) {
+                        return new ProducerRecord<byte[], byte[]>(topic, s.getBytes());
+                    }
+                }
+                //设置精准一次语义
+                , props, FlinkKafkaProducer.Semantic.EXACTLY_ONCE);
     }
 }
