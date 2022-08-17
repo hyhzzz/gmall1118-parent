@@ -63,7 +63,6 @@ public class MyKafkaUtil {
     }
 
     //获取生产者对象的方法
-
     public static FlinkKafkaProducer<String> getKafkaProducer(String topic) {
 
         Properties props = new Properties();
@@ -75,8 +74,8 @@ public class MyKafkaUtil {
                 //自己实现序列化
                 new KafkaSerializationSchema<String>() {
                     @Override
-                    public ProducerRecord<byte[], byte[]> serialize(String s, @Nullable Long aLong) {
-                        return new ProducerRecord<byte[], byte[]>(topic, s.getBytes());
+                    public ProducerRecord<byte[], byte[]> serialize(String element, @Nullable Long aLong) {
+                        return new ProducerRecord<byte[], byte[]>(topic, element.getBytes());
                     }
                 }
                 //设置精准一次语义

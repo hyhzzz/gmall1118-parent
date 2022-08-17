@@ -92,6 +92,7 @@ public class DimSinkApp {
                     public boolean filter(JSONObject jsonObj) throws Exception {
                         try {
                             String dataJsonStr = jsonObj.getString("data");
+
                             //判断本身是不是一个标准json字符串
                             JSONValidator.from(dataJsonStr).validate();
                             if (jsonObj.getString("type").equals("bootstrap-start") || jsonObj.getString("type").equals("bootstrap-complete")) {
