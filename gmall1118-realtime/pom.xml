@@ -136,6 +136,13 @@
         </dependency>
 
 
+        <dependency>
+            <groupId>org.apache.flink</groupId>
+            <artifactId>flink-table-planner-blink_${scala.version}</artifactId>
+            <version>${flink.version}</version>
+        </dependency>
+
+
     </dependencies>
 
     <build>

@@ -81,4 +81,41 @@ public class MyKafkaUtil {
                 //设置精准一次语义
                 , props, FlinkKafkaProducer.Semantic.EXACTLY_ONCE);
     }
+
+    //获取kafka连接器相关连接属性  消费kafka数据
+    public static String getKafkaDDL(String topic, String groupId) {
+        return "WITH (\n" +
+                "  'connector' = 'kafka',\n" +
+                "  'topic' = '" + topic + "',\n" +
+                "  'properties.bootstrap.servers' = '" + KAFKA_SERVER + "',\n" +
+                "  'properties.group.id' = '" + groupId + "',\n" +
+                "  'scan.startup.mode' = 'group-offsets',\n" +
+                "  'format' = 'json'\n" +
+                ")";
+    }
+
+    //获取upsert-kafka连接器相关连接属性   数据写出到kafka
+    public static String getUpsertKafkaDDL(String topic) {
+        return "WITH (\n" +
+                "  'connector' = 'upsert-kafka',\n" +
+                "  'topic' = '" + topic + "',\n" +
+                "  'properties.bootstrap.servers' = '" + KAFKA_SERVER + "',\n" +
+                "  'key.format' = 'json',\n" +
+                "  'value.format' = 'json'\n" +
+                ")";
+    }
+
+    //获取从kafka的topic_db主题中读取数据创建动态表的DDL
+    public static String getTopicDbDDL(String groupId) {
+        return "create table topic_db(" +
+                "`database` String,\n" +
+                "`table` String,\n" +
+                "`type` String,\n" +
+                "`data` map<String, String>,\n" +
+                "`old` map<String, String>,\n" +
+                "`proc_time` as PROCTIME(),\n" +
+                "`ts` string\n" +
+                ")" + getKafkaDDL("topic_db", groupId);
+    }
+
 }
